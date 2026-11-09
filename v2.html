@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>猜數字遊戲 v2 答題紀錄版</title>
+<style>
+  :root {
+    --bg: #f3f6f4;
+    --panel: #ffffff;
+    --ink: #1c2b25;
+    --muted: #6b7c74;
+    --line: #d5dfda;
+    --accent: #1f7a5c;
+    --high: #c2553a;
+    --low: #2f6db3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121a17;
+      --panel: #1b2622;
+      --ink: #e6efe9;
+      --muted: #94a69d;
+      --line: #2c3a35;
+      --accent: #4cc39b;
+      --high: #ee8a6f;
+      --low: #7fb0ea;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  .wrap { max-width: 460px; margin: 0 auto; display: grid; gap: 16px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  h2 { margin: 0 0 12px; font-size: 1.15rem; }
+  .sub { margin: 0 0 16px; color: var(--muted); font-size: .95rem; }
+  .back { display: inline-block; margin-bottom: 12px; color: var(--accent); font-size: .9rem; text-decoration: none; }
+  .status { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: .95rem; }
+  .range {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: 14px 0;
+    margin-bottom: 16px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .row { display: flex; gap: 8px; }
+  input[type=number] {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.2rem;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  button {
+    font: inherit;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button.danger { background: transparent; color: var(--high); border: 1px solid var(--high); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .msg { min-height: 1.6em; margin: 14px 0 6px; font-weight: 600; }
+  .msg.high { color: var(--high); }
+  .msg.low { color: var(--low); }
+  .msg.win { color: var(--accent); }
+  .history { list-style: none; margin: 0 0 16px; padding: 0; max-height: 140px; overflow-y: auto; font-size: .92rem; color: var(--muted); }
+  .history li { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; text-align: center; }
+  .stats div { padding: 10px 4px; border: 1px solid var(--line); border-radius: 8px; }
+  .stats strong { display: block; font-size: 1.3rem; }
+  .stats span { font-size: .8rem; color: var(--muted); }
+  .records { list-style: none; margin: 0 0 14px; padding: 0; max-height: 320px; overflow-y: auto; }
+  .records li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .92rem; }
+  .records .top { display: flex; justify-content: space-between; gap: 8px; }
+  .records .result.win { color: var(--accent); font-weight: 600; }
+  .records .result.lose { color: var(--high); font-weight: 600; }
+  .records .seq { margin-top: 4px; color: var(--muted); font-size: .85rem; word-break: break-all; }
+  .empty { color: var(--muted); text-align: center; padding: 12px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section>
+    <a class="back" href="index.html">← 回到版本選單</a>
+    <h1>猜數字遊戲 v2</h1>
+    <p class="sub">每一局都會留下答題紀錄。</p>
+
+    <div class="status">
+      <span>已猜 <strong id="count">0</strong> 次</span>
+      <span>最佳紀錄：<strong id="best">—</strong></span>
+    </div>
+
+    <div class="range" id="range">1 ~ 100</div>
+
+    <div class="row">
+      <input type="number" id="guess" inputmode="numeric" placeholder="輸入數字" aria-label="輸入你猜的數字">
+      <button id="submit">猜</button>
+    </div>
+
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <ul class="history" id="history"></ul>
+
+    <div class="controls">
+      <select id="level" aria-label="難度">
+        <option value="50">簡單 1~50</option>
+        <option value="100" selected>普通 1~100</option>
+        <option value="1000">困難 1~1000</option>
+      </select>
+      <button class="danger" id="giveup">放棄看答案</button>
+      <button class="ghost" id="restart">重新開始</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>答題紀錄</h2>
+    <div class="stats">
+      <div><strong id="stTotal">0</strong><span>總局數</span></div>
+      <div><strong id="stRate">—</strong><span>成功率</span></div>
+      <div><strong id="stAvg">—</strong><span>平均次數</span></div>
+    </div>
+    <ul class="records" id="records"></ul>
+    <button class="danger" id="clear">清除所有紀錄</button>
+  </section>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY_REC = "guess-v2-records";
+  var KEY_BEST = "guess-v2-best";
+  var MAX_RECORDS = 50;
+
+  var max = 100, target, count, over, guesses, rangeMin, rangeMax;
+
+  function load(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; }
+  }
+  function save(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  function setMsg(text, cls) {
+    $("msg").textContent = text;
+    $("msg").className = "msg " + (cls || "");
+  }
+  function showBest() {
+    var b = load(KEY_BEST, {})[max];
+    $("best").textContent = b ? b + " 次" : "—";
+  }
+  function levelName(m) {
+    return m === 50 ? "簡單" : m === 1000 ? "困難" : "普通";
+  }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function formatTime(ts) {
+    var d = new Date(ts);
+    return pad(d.getMonth() + 1) + "/" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function renderRecords() {
+    var list = load(KEY_REC, []);
+    var ul = $("records");
+    ul.innerHTML = "";
+
+    var total = list.length;
+    var wins = list.filter(function (r) { return r.won; });
+    $("stTotal").textContent = total;
+    $("stRate").textContent = total ? Math.round(wins.length / total * 100) + "%" : "—";
+    $("stAvg").textContent = wins.length
+      ? (wins.reduce(function (s, r) { return s + r.guesses.length; }, 0) / wins.length).toFixed(1)
+      : "—";
+
+    if (!total) {
+      var empty = document.createElement("li");
+      empty.className = "empty";
+      empty.textContent = "還沒有紀錄，玩一局看看吧。";
+      ul.appendChild(empty);
+      return;
+    }
+
+    list.forEach(function (r) {
+      var li = document.createElement("li");
+
+      var top = document.createElement("div");
+      top.className = "top";
+      var left = document.createElement("span");
+      left.textContent = formatTime(r.time) + "　" + levelName(r.max) + " 1~" + r.max + "　答案 " + r.answer;
+      var right = document.createElement("span");
+      right.className = "result " + (r.won ? "win" : "lose");
+      right.textContent = r.won ? "成功 " + r.guesses.length + " 次" : "放棄";
+      top.appendChild(left);
+      top.appendChild(right);
+
+      var seq = document.createElement("div");
+      seq.className = "seq";
+      seq.textContent = r.guesses.length ? "猜過：" + r.guesses.join(" → ") : "沒有猜過";
+
+      li.appendChild(top);
+      li.appendChild(seq);
+      ul.appendChild(li);
+    });
+  }
+
+  function addRecord(won) {
+    var list = load(KEY_REC, []);
+    list.unshift({
+      time: Date.now(),
+      max: max,
+      answer: target,
+      guesses: guesses.slice(),
+      won: won
+    });
+    save(KEY_REC, list.slice(0, MAX_RECORDS));
+    renderRecords();
+  }
+
+  function lockInput() {
+    $("guess").disabled = true;
+    $("submit").disabled = true;
+    $("giveup").disabled = true;
+  }
+
+  function start() {
+    max = parseInt($("level").value, 10);
+    rangeMin = 1;
+    rangeMax = max;
+    target = Math.floor(Math.random() * max) + 1;
+    count = 0;
+    guesses = [];
+    over = false;
+    $("count").textContent = 0;
+    $("range").textContent = rangeMin + " ~ " + rangeMax;
+    $("history").innerHTML = "";
+    $("guess").value = "";
+    $("guess").disabled = false;
+    $("submit").disabled = false;
+    $("giveup").disabled = false;
+    $("guess").min = 1;
+    $("guess").max = max;
+    setMsg("");
+    showBest();
+    $("guess").focus();
+  }
+
+  function addHistory(n, text) {
+    var li = document.createElement("li");
+    li.textContent = "第 " + count + " 次：" + n + "　" + text;
+    $("history").insertBefore(li, $("history").firstChild);
+  }
+
+  function updateRange(n, tooHigh) {
+    if (tooHigh) rangeMax = Math.min(rangeMax, n - 1);
+    else rangeMin = Math.max(rangeMin, n + 1);
+    $("range").textContent = rangeMin + " ~ " + rangeMax;
+  }
+
+  function guess() {
+    if (over) return;
+    var raw = $("guess").value.trim();
+    var n = Number(raw);
+    if (raw === "" || !Number.isInteger(n) || n < 1 || n > max) {
+      setMsg("請輸入 1 到 " + max + " 之間的整數。", "high");
+      return;
+    }
+    count++;
+    guesses.push(n);
+    $("count").textContent = count;
+
+    if (n === target) {
+      over = true;
+      addHistory(n, "答對");
+      lockInput();
+      var best = load(KEY_BEST, {});
+      if (!best[max] || count < best[max]) {
+        best[max] = count;
+        save(KEY_BEST, best);
+        showBest();
+        setMsg("答對了！答案是 " + target + "，" + count + " 次，刷新最佳紀錄！", "win");
+      } else {
+        setMsg("答對了！答案是 " + target + "，你猜了 " + count + " 次。", "win");
+      }
+      addRecord(true);
+    } else if (n > target) {
+      setMsg("太大了，再小一點。", "high");
+      addHistory(n, "太大");
+      updateRange(n, true);
+    } else {
+      setMsg("太小了，再大一點。", "low");
+      addHistory(n, "太小");
+      updateRange(n, false);
+    }
+    $("guess").value = "";
+    $("guess").focus();
+  }
+
+  function giveUp() {
+    if (over) return;
+    over = true;
+    lockInput();
+    setMsg("答案是 " + target + "。這局已記錄為放棄。", "high");
+    addRecord(false);
+  }
+
+  $("submit").addEventListener("click", guess);
+  $("guess").addEventListener("keydown", function (e) { if (e.key === "Enter") guess(); });
+  $("giveup").addEventListener("click", giveUp);
+  $("restart").addEventListener("click", start);
+  $("level").addEventListener("change", start);
+  $("clear").addEventListener("click", function () {
+    if (confirm("確定要清除所有答題紀錄嗎？")) {
+      save(KEY_REC, []);
+      renderRecords();
+    }
+  });
+
+  renderRecords();
+  start();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>猜數字遊戲 v3 雲端紀錄版</title>
+<style>
+  :root {
+    --bg: #f3f6f4; --panel: #ffffff; --ink: #1c2b25; --muted: #6b7c74;
+    --line: #d5dfda; --accent: #1f7a5c; --high: #c2553a; --low: #2f6db3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121a17; --panel: #1b2622; --ink: #e6efe9; --muted: #94a69d;
+      --line: #2c3a35; --accent: #4cc39b; --high: #ee8a6f; --low: #7fb0ea;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  main {
+    width: 100%; max-width: 420px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .sub { margin: 0 0 20px; color: var(--muted); font-size: .95rem; }
+  .back { display: inline-block; margin-bottom: 12px; color: var(--accent); font-size: .9rem; text-decoration: none; }
+  .hidden { display: none; }
+  label { display: block; margin-bottom: 6px; font-weight: 600; }
+  .status { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: .95rem; }
+  .range {
+    text-align: center; font-size: 2rem; font-weight: 700; letter-spacing: .04em;
+    padding: 14px 0; margin-bottom: 16px;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .row { display: flex; gap: 8px; }
+  input[type=number], input[type=text] {
+    flex: 1; min-width: 0; font-size: 1.2rem; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+  }
+  button {
+    font: inherit; padding: 10px 18px; border: 0; border-radius: 8px;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button.danger { background: transparent; color: var(--high); border: 1px solid var(--high); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .msg { min-height: 1.6em; margin: 14px 0 6px; font-weight: 600; }
+  .msg.high { color: var(--high); }
+  .msg.low { color: var(--low); }
+  .msg.win { color: var(--accent); }
+  .history { list-style: none; margin: 0 0 16px; padding: 0; max-height: 150px; overflow-y: auto; font-size: .92rem; color: var(--muted); }
+  .history li { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .note { margin-top: 12px; color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="index.html">← 回到版本選單</a>
+
+  <!-- 登入畫面 -->
+  <div id="loginView">
+    <h1>猜數字遊戲 v3</h1>
+    <p class="sub">開始前請先輸入遊戲代號，遊戲過程會記錄到雲端。</p>
+    <label for="playerInput">遊戲代號</label>
+    <div class="row">
+      <input type="text" id="playerInput" maxlength="20" placeholder="例如：小明、A01" autocomplete="off">
+      <button id="loginBtn">開始</button>
+    </div>
+    <div class="msg high" id="loginMsg" role="alert"></div>
+    <p class="note">代號最多 20 個字，同一個代號的所有紀錄會放在一起。</p>
+  </div>
+
+  <!-- 遊戲畫面 -->
+  <div id="gameView" class="hidden">
+    <h1>猜數字遊戲 v3</h1>
+    <p class="sub">玩家：<strong id="playerName"></strong>　<button class="ghost" id="logoutBtn" style="padding:2px 10px;font-size:.85rem">換代號</button></p>
+
+    <div class="status">
+      <span>已猜 <strong id="count">0</strong> 次</span>
+      <span id="levelLabel"></span>
+    </div>
+
+    <div class="range" id="range">1 ~ 100</div>
+
+    <div class="row">
+      <input type="number" id="guess" inputmode="numeric" placeholder="輸入數字" aria-label="輸入你猜的數字">
+      <button id="submit">猜</button>
+    </div>
+
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <ul class="history" id="history"></ul>
+
+    <div class="controls">
+      <select id="level" aria-label="難度">
+        <option value="50">簡單 1~50</option>
+        <option value="100" selected>普通 1~100</option>
+        <option value="1000">困難 1~1000</option>
+      </select>
+      <button class="danger" id="giveup">放棄</button>
+      <button class="ghost" id="restart">新的一局</button>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var GAS_URL = "https://script.google.com/macros/s/AKfycbxtVkQ5CleBjNupqh4q84BwC32zhPNUIHmFYgppMOHPTsZzpVCVM0jYLhwpcHer16RxIQ/exec";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var player = "", gameId = "", max = 100, target, count, over, startTime, rangeMin, rangeMax;
+
+  // 送出一筆紀錄到雲端（不等待回應，失敗不影響遊戲）
+  function send(data) {
+    data.player = player;
+    data.gameId = gameId;
+    data.level = levelName(max) + " 1~" + max;
+    data.seconds = Math.round((Date.now() - startTime) / 1000);
+    try {
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(data),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function levelName(m) { return m === 50 ? "簡單" : m === 1000 ? "困難" : "普通"; }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  function setMsg(text, cls) { $("msg").textContent = text; $("msg").className = "msg " + (cls || ""); }
+
+  /* ---------- 登入 ---------- */
+  function login() {
+    var name = $("playerInput").value.trim();
+    if (!name) { $("loginMsg").textContent = "請先輸入遊戲代號。"; return; }
+    player = name;
+    try { localStorage.setItem("guess-v3-player", name); } catch (e) {}
+    $("loginMsg").textContent = "";
+    $("playerName").textContent = player;
+    $("loginView").classList.add("hidden");
+    $("gameView").classList.remove("hidden");
+    start();
+  }
+  function logout() {
+    player = "";
+    $("gameView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
+    $("playerInput").focus();
+  }
+
+  /* ---------- 遊戲 ---------- */
+  function start() {
+    max = parseInt($("level").value, 10);
+    rangeMin = 1;
+    rangeMax = max;
+    target = Math.floor(Math.random() * max) + 1;
+    count = 0;
+    over = false;
+    gameId = newId();
+    startTime = Date.now();
+
+    $("count").textContent = 0;
+    $("levelLabel").textContent = levelName(max) + " 1~" + max;
+    $("range").textContent = rangeMin + " ~ " + rangeMax;
+    $("history").innerHTML = "";
+    $("guess").value = "";
+    $("guess").min = 1;
+    $("guess").max = max;
+    $("guess").disabled = false;
+    $("submit").disabled = false;
+    $("giveup").disabled = false;
+    setMsg("");
+    $("guess").focus();
+
+    send({ event: "開始" });
+  }
+
+  function addHistory(n, text) {
+    var li = document.createElement("li");
+    li.textContent = "第 " + count + " 次：" + n + "　" + text;
+    $("history").insertBefore(li, $("history").firstChild);
+  }
+  function updateRange(n, tooHigh) {
+    if (tooHigh) rangeMax = Math.min(rangeMax, n - 1);
+    else rangeMin = Math.max(rangeMin, n + 1);
+    $("range").textContent = rangeMin + " ~ " + rangeMax;
+  }
+  function lockInput() {
+    $("guess").disabled = true;
+    $("submit").disabled = true;
+    $("giveup").disabled = true;
+  }
+
+  function guess() {
+    if (over) return;
+    var raw = $("guess").value.trim();
+    var n = Number(raw);
+    if (raw === "" || !Number.isInteger(n) || n < 1 || n > max) {
+      setMsg("請輸入 1 到 " + max + " 之間的整數。", "high");
+      return;
+    }
+    count++;
+    $("count").textContent = count;
+
+    if (n === target) {
+      over = true;
+      lockInput();
+      setMsg("答對了！答案是 " + target + "，你猜了 " + count + " 次。", "win");
+      addHistory(n, "答對");
+      send({ event: "猜測", step: count, guess: n, result: "答對" });
+      send({ event: "答對結束", step: count, answer: target, result: "成功" });
+    } else if (n > target) {
+      setMsg("太大了，再小一點。", "high");
+      addHistory(n, "太大");
+      updateRange(n, true);
+      send({ event: "猜測", step: count, guess: n, result: "太大" });
+    } else {
+      setMsg("太小了，再大一點。", "low");
+      addHistory(n, "太小");
+      updateRange(n, false);
+      send({ event: "猜測", step: count, guess: n, result: "太小" });
+    }
+    $("guess").value = "";
+    $("guess").focus();
+  }
+
+  function giveUp() {
+    if (over) return;
+    over = true;
+    lockInput();
+    setMsg("答案是 " + target + "。這局已記錄為放棄。", "high");
+    send({ event: "放棄結束", step: count, answer: target, result: "放棄" });
+  }
+
+  /* ---------- 事件 ---------- */
+  $("loginBtn").addEventListener("click", login);
+  $("playerInput").addEventListener("keydown", function (e) { if (e.key === "Enter") login(); });
+  $("logoutBtn").addEventListener("click", logout);
+  $("submit").addEventListener("click", guess);
+  $("guess").addEventListener("keydown", function (e) { if (e.key === "Enter") guess(); });
+  $("giveup").addEventListener("click", giveUp);
+  $("restart").addEventListener("click", start);
+  $("level").addEventListener("change", start);
+
+  // 記住上次輸入的代號（只是預填，仍需按「開始」）
+  try { $("playerInput").value = localStorage.getItem("guess-v3-player") || ""; } catch (e) {}
+  $("playerInput").focus();
+})();
+</script>
+</body>
+</html>
